@@ -11,6 +11,7 @@ from model import Net
 import torch.optim as optim
 import warnings
 warnings.filterwarnings('ignore')
+from tqdm import tqdm
 # 字符ID化
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
@@ -110,20 +111,25 @@ def result_metric(prediction_all, y_2d_all):
 
 def TrainOneEpoch(model, train_iter, optimizer, hp):
     model.train()
-    for i, batch in enumerate(train_iter):
+    prediction_all, y_2d_all = [], []
+    for i, batch in enumerate(tqdm(train_iter)):
         _, tokens_id_l, answer_offset_l, answer_seq_label_l = batch
         optimizer.zero_grad()
         prediction, loss, y_2d  = model.module.forward(tokens_id_l, answer_offset_l, answer_seq_label_l)
+        prediction_all.append(prediction)
+        y_2d_all.append(y_2d)
         # nn.utils.clip_grad_norm_(model.parameters(), 3.0)#设置梯度截断阈值
         loss.backward()## 计算梯度
         optimizer.step()## 根据计算的梯度更新网络参数
         if i%100 ==0:
-            print("Setp-{} Loss:{:.3f}".format(i,loss.item()))
+            acc = result_metric(prediction_all, y_2d_all)
+            print("Setp-{} Loss:{:.3f} acc:{:.3f}".format(i,loss.item(),acc))
+            prediction_all, y_2d_all = [], []
 
 def Eval(model, iterator):
     model.eval()
     prediction_all, crf_loss_all, y_2d_all = [],[],[]
-    for i, batch in enumerate(iterator):
+    for i, batch in enumerate(tqdm(iterator)):
         _, tokens_id_l, answer_offset_l, answer_seq_label_l = batch
         prediction, crf_loss, y_2d  = model.module.forward(tokens_id_l, answer_offset_l, answer_seq_label_l)
         prediction_all.append(prediction)
@@ -131,8 +137,7 @@ def Eval(model, iterator):
         crf_loss_all.append(crf_loss.to("cpu").item())
 
     acc = result_metric(prediction_all, y_2d_all)
-    print("Eval-Loss: {:.3f}".format(np.mean(crf_loss_all)))
-    print("Eval-Result: {:.3f}".format(acc))
+    print("Eval-Loss: {:.3f}  Eval-Result: acc = {:.3f}".format(np.mean(crf_loss_all),acc))
     return acc
 
 
@@ -146,7 +151,6 @@ if __name__ == "__main__":
     parser.add_argument("--trainset", type=str, default="data/me_train.json")
     parser.add_argument("--devset", type=str, default="data/me_validation.ann.json")
     parser.add_argument("--testset", type=str, default="data/me_test.ann.json")
-    parser.add_argument("--LOSS_alpha", type=float, default=1.0)
     parser.add_argument("--device", type=str, default='cuda')
     if os.name == "nt":
         parser.add_argument("--model_path", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\latest_model.pt")
@@ -210,6 +214,7 @@ if __name__ == "__main__":
     no_gain_rc = 0#效果不增加代数
 
     for epoch in range(1, hp.n_epochs + 1):
+        print(f"=========TRAIN at epoch={epoch}=========")
         TrainOneEpoch(model, train_iter, optimizer, hp)
 
         print(f"=========eval dev at epoch={epoch}=========")
