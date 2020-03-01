@@ -69,12 +69,11 @@ class WebQADataset(data.Dataset):
 
     def get_samples_weight(self):
         samples_weight = []
-        for i in range(len(self.answer)):
-            tokens ,tokens_id, answer_offset, answer_seq_label = self.__getitem__(i)
-            if answer_offset != (-1,-1):
-                samples_weight.append(5.0)
-            else:
+        for ans in self.answer:
+            if ans != 'no_answer':
                 samples_weight.append(1.0)
+            else:
+                samples_weight.append(0.01)
         return np.array(samples_weight)
 
 def pad(batch):
@@ -153,8 +152,8 @@ if __name__ == "__main__":
         parser.add_argument("--model_back", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\\back_model.pt")
         parser.add_argument("--batch_size", type=int, default=4)
     else:
-        parser.add_argument("--model_path", type=str, default="BERT for WebQA/save_model/latest_model.pt")
-        parser.add_argument("--model_back", type=str, default="BERT for WebQA/save_model/back_model.pt")
+        parser.add_argument("--model_path", type=str, default="save_model/latest_model.pt")
+        parser.add_argument("--model_back", type=str, default="save_model/back_model.pt")
         parser.add_argument("--batch_size", type=int, default=16)
 
     hp = parser.parse_args()
@@ -165,13 +164,13 @@ if __name__ == "__main__":
     dev_dataset = WebQADataset(hp.devset)
     test_dataset = WebQADataset(hp.testset)
 
-    # samples_weight = train_dataset.get_samples_weight()
-    # sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
+    samples_weight = train_dataset.get_samples_weight()
+    sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
 
     train_iter = data.DataLoader(dataset=train_dataset,
                                  batch_size=hp.batch_size,
                                  shuffle=False,
-                                #  sampler=sampler,
+                                 sampler=sampler,
                                  num_workers=4,
                                  collate_fn=pad
                                  )
