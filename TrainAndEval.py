@@ -48,15 +48,7 @@ class WebQADataset(data.Dataset):
     def __getitem__(self, idx):
         # We give credits only to the first piece.
         q, e, a = self.questions[idx], self.evidences[idx], self.answer[idx]
-        '''
-        sen = "我是中国人，你呢？"
-        tokens = tokenizer.tokenize(sen)
-        tokens_xx = tokenizer.convert_tokens_to_ids(tokens)
-        print(tokens)
-        print(tokens_xx)
-        ['我', '是', '中', '国', '人', '，', '你', '呢', '？']
-        [2769, 3221, 704, 1744, 782, 8024, 872, 1450, 8043]
-        '''
+
         ## 测试集中最长 Evidence 244，最长 Answer 89，所以将 max_len = 400
         tokens = tokenizer.tokenize('[CLS]'+q+'[SEP]'+e)# list
         if len(tokens)>512:
@@ -121,10 +113,14 @@ def TrainOneEpoch(model, train_iter, optimizer, hp):
         # nn.utils.clip_grad_norm_(model.parameters(), 3.0)#设置梯度截断阈值
         loss.backward()## 计算梯度
         optimizer.step()## 根据计算的梯度更新网络参数
-        if i%100 ==0:
+        if i%100 == 0:
             acc = result_metric(prediction_all, y_2d_all)
             print("Setp-{} Loss:{:.3f} acc:{:.3f}".format(i,loss.item(),acc))
             prediction_all, y_2d_all = [], []
+        if i % 1000 == 0:
+            print("=======保存备份=======")
+            torch.save(model, hp.model_back)
+
 
 def Eval(model, iterator):
     model.eval()
@@ -154,9 +150,11 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default='cuda')
     if os.name == "nt":
         parser.add_argument("--model_path", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\latest_model.pt")
+        parser.add_argument("--model_back", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\\back_model.pt")
         parser.add_argument("--batch_size", type=int, default=4)
     else:
         parser.add_argument("--model_path", type=str, default="BERT for WebQA/save_model/latest_model.pt")
+        parser.add_argument("--model_back", type=str, default="BERT for WebQA/save_model/back_model.pt")
         parser.add_argument("--batch_size", type=int, default=16)
 
     hp = parser.parse_args()
@@ -208,6 +206,7 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.split(hp.model_path)[0]):
         os.makedirs(os.path.split(hp.model_path)[0])
 
+    
     test_acc = Eval(model, test_iter)
 
     best_acc = max(0,test_acc )
