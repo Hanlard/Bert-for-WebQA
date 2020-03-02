@@ -4,7 +4,7 @@ from torch.utils import data
 from transformers import BertTokenizer , BertModel
 import numpy as np
 import argparse
-
+import time
 import torch
 import torch.nn as nn
 from model import Net
@@ -100,7 +100,7 @@ def result_metric(prediction_all, y_2d_all):
         total_num = total_num + batch_size
     return toral_cur/total_num
 
-def TrainOneEpoch(model, train_iter, optimizer, hp):
+def TrainOneEpoch(model, train_iter, dev_iter,test_iter, optimizer, hp):
     model.train()
     prediction_all, y_2d_all = [], []
     for i, batch in enumerate(tqdm(train_iter)):
@@ -112,19 +112,25 @@ def TrainOneEpoch(model, train_iter, optimizer, hp):
         # nn.utils.clip_grad_norm_(model.parameters(), 3.0)#设置梯度截断阈值
         loss.backward()## 计算梯度
         optimizer.step()## 根据计算的梯度更新网络参数
-        if i%100 == 0:
+        if i % 100 == 0 and i > 0:
             acc = result_metric(prediction_all, y_2d_all)
-            print("Setp-{} Loss:{:.3f} acc:{:.3f}".format(i,loss.item(),acc))
+            print("<Last 100 Steps MeanValue> Setp-{} Loss:{:.3f} acc:{:.3f}".format(i,loss.item(),acc))
             prediction_all, y_2d_all = [], []
         if i % 1000 == 0:
             print("=======保存备份=======")
             torch.save(model, hp.model_back)
+            # print('—————Eval on DevData————')
+            dev_acc = Eval(model, dev_iter)
+            # print("——————————————————————")
+            # print('====== eval test ======')
+            # test_acc = Eval(model, test_iter)
+            model.train()
 
 
 def Eval(model, iterator):
     model.eval()
     prediction_all, crf_loss_all, y_2d_all = [],[],[]
-    for i, batch in enumerate(tqdm(iterator)):
+    for i, batch in enumerate(iterator):
         _, tokens_id_l, answer_offset_l, answer_seq_label_l = batch
         prediction, crf_loss, y_2d  = model.module.forward(tokens_id_l, answer_offset_l, answer_seq_label_l)
         prediction_all.append(prediction)
@@ -132,7 +138,7 @@ def Eval(model, iterator):
         crf_loss_all.append(crf_loss.to("cpu").item())
 
     acc = result_metric(prediction_all, y_2d_all)
-    print("Eval-Loss: {:.3f}  Eval-Result: acc = {:.3f}".format(np.mean(crf_loss_all),acc))
+    print("<本次评估结果> Eval-Loss: {:.3f}  Eval-Result: acc = {:.3f}".format(np.mean(crf_loss_all),acc))
     return acc
 
 
@@ -205,18 +211,18 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.split(hp.model_path)[0]):
         os.makedirs(os.path.split(hp.model_path)[0])
 
-    
+    print("First Eval On TestData")
     test_acc = Eval(model, test_iter)
-
+    time.sleep(0.1)
     best_acc = max(0,test_acc )
     no_gain_rc = 0#效果不增加代数
 
     for epoch in range(1, hp.n_epochs + 1):
-        print(f"=========TRAIN at epoch={epoch}=========")
-        TrainOneEpoch(model, train_iter, optimizer, hp)
+        print(f"=========TRAIN and EVAL at epoch={epoch}=========")
+        TrainOneEpoch(model, train_iter, dev_iter,test_iter, optimizer, hp)
 
-        print(f"=========eval dev at epoch={epoch}=========")
-        dev_acc = eval(model, dev_iter)
+        # print(f"=========eval dev at epoch={epoch}=========")
+        # dev_acc = eval(model, dev_iter)
 
         print(f"=========eval test at epoch={epoch}=========")
         test_acc= eval(model, test_iter)
