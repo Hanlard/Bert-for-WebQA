@@ -5,6 +5,6 @@
 
 输入：[‘CLS’]+Question+[‘SEP’]+Evidence 字符串
 
-输出：0 1 序列， Evidence 中出现答案的位置为 1 ，其余为 0
+输出：0-1 序列， Evidence 中出现答案的位置为 1 ，其余为 0
 
 数据集来自：https://pan.baidu.com/s/1QUsKcFWZ7Tg1dk_AbldZ1A 提取码：2dva
