@@ -1,10 +1,14 @@
 # Bert-for-WebQA
-用BERT在百度WebQA中文问答数据集上做阅读问答，会陆续更新算法模块。
+使用 torch 和 transformers 包从零开始搭建了一个中文阅读问答训练测试
 
-模型用transformers和pytorch包实现，直接运行TrainAndEval.py进行训练和测试。
+框架 ，数据选择百度的 WebQA 问答数据集， 类似于斯坦福智能问答数据集，
+
+使用 Bert-base-chinese 和 CRF 模型 做基础，模型可以根据需要持续更新。
 
 输入：[‘CLS’]+Question+[‘SEP’]+Evidence 字符串
 
 输出：0-1 序列， Evidence 中出现答案的位置为 1 ，其余为 0
 
 数据集来自：https://pan.baidu.com/s/1QUsKcFWZ7Tg1dk_AbldZ1A 提取码：2dva
+
+BaseLine论文：https://arxiv.org/abs/1607.06275
