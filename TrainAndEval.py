@@ -12,6 +12,7 @@ import torch.optim as optim
 import warnings
 warnings.filterwarnings('ignore')
 from tqdm import tqdm
+import time
 # 字符ID化
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
@@ -290,9 +291,10 @@ if __name__ == "__main__":
         if os.path.exists(hp.model_path):
             print('=======载入模型=======')
             model = torch.load(hp.model_path)
+            ques_num=1
             while True:
                 try:
-                    print("请输入问题：")
+                    print("请输入问题-{}:".format(ques_num))
                     question = input()
                     if question == "OVER":
                         print("问答结束！")
@@ -300,11 +302,15 @@ if __name__ == "__main__":
                     print("请输入文章：")
                     evidence = input()
                     print("正在解析...")
+                    start = time.time()
                     answer = Demo(model,question,evidence)
+                    end = time.time()
                     if answer:
-                        print("问题的答案是：{}".format(answer))
+                        print("问题-{}的答案是：{}".format(ques_num,answer))
+                        print("耗时:{:.2f}毫秒".format((end-start)*1e3))
                     else:
                         print("文章中没有答案")
+                    ques_num = ques_num + 1
                 except:
                     print("问答结束！")
                     break
