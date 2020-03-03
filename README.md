@@ -12,8 +12,6 @@
 数据集来自：https://pan.baidu.com/s/1QUsKcFWZ7Tg1dk_AbldZ1A 提取码：2dva
 
 BaseLine论文：https://arxiv.org/abs/1607.06275
-<<<<<<< HEAD
-=======
 
 ==================== 超参 ====================
 
@@ -35,4 +33,9 @@ BaseLine论文：https://arxiv.org/abs/1607.06275
 Eval On TestData   Eval-Loss: 15.383  Eval-Result: acc = 0.796
 
 Eval On DevData    Eval-Loss: 13.986  Eval-Result: acc = 0.795
->>>>>>> a2394ffb8126493363791ec3f145a4e3e3e22d2c
+
+说明：上面效果只训练了半个epoch 因为疫情在家没有服务器，用谷歌云训练的
+
+聊天效果如下：
+
+![image text](https://github.com/Hanlard/Bert-for-WebQA/blob/master/问答截屏/问答界面.png)
