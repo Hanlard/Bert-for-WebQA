@@ -34,6 +34,8 @@ Eval On TestData   Eval-Loss: 15.383  Eval-Result: acc = 0.796
 
 Eval On DevData    Eval-Loss: 13.986  Eval-Result: acc = 0.795
 
+模型的谷歌云共享连接：https://drive.google.com/open?id=1KHlCnT6VEpDCvtJp8FfwMtU5_ABrYzH9
+
 说明：上面效果只训练了半个epoch 因为疫情在家没有服务器，用谷歌云训练的
 
 聊天效果如下：
