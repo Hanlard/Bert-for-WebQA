@@ -119,7 +119,7 @@ def TrainOneEpoch(model, train_iter, dev_iter,test_iter, optimizer, hp):
         if i % 1000 == 0:
             print("=======保存备份=======")
             torch.save(model, hp.model_back)
-            # print('—————Eval on DevData————')
+            # print('———Eval on DevData————')
             dev_acc = Eval(model, dev_iter)
             # print("——————————————————————")
             # print('====== eval test ======')
@@ -128,6 +128,7 @@ def TrainOneEpoch(model, train_iter, dev_iter,test_iter, optimizer, hp):
 
 
 def Eval(model, iterator):
+
     model.eval()
     prediction_all, crf_loss_all, y_2d_all = [],[],[]
     for i, batch in enumerate(iterator):
@@ -141,6 +142,20 @@ def Eval(model, iterator):
     print("<本次评估结果> Eval-Loss: {:.3f}  Eval-Result: acc = {:.3f}".format(np.mean(crf_loss_all),acc))
     return acc
 
+def Demo(model, q, e):
+    tokens = tokenizer.tokenize('[CLS]' + q + '[SEP]' + e)  # list
+    if len(tokens) > 512:
+        tokens = tokens[:512]
+    tokens_id = [tokenizer.convert_tokens_to_ids(tokens)]
+    prediction = model.module.predict(tokens_id)
+    prediction = prediction.numpy()[0]
+    answer = ""
+    for i in range(len(tokens)):
+        if prediction[i].item()==1:
+            answer = answer + tokens[i]
+    return answer
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -153,6 +168,7 @@ if __name__ == "__main__":
     parser.add_argument("--devset", type=str, default="data/me_validation.ann.json")
     parser.add_argument("--testset", type=str, default="data/me_test.ann.json")
     parser.add_argument("--device", type=str, default='cuda')
+    parser.add_argument("--mode", type=str, default='train')# eval / demo
     if os.name == "nt":
         parser.add_argument("--model_path", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\latest_model.pt")
         parser.add_argument("--model_back", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\\back_model.pt")
@@ -166,77 +182,136 @@ if __name__ == "__main__":
     print("="*20+" 超参 "+"="*20)
     for para in hp.__dict__:
         print(" " * (20 - len(para)), para, "=", hp.__dict__[para])
-    train_dataset = WebQADataset(hp.trainset)
-    dev_dataset = WebQADataset(hp.devset)
-    test_dataset = WebQADataset(hp.testset)
 
-    samples_weight = train_dataset.get_samples_weight()
-    sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
+    if hp.mode == "train":
+        train_dataset = WebQADataset(hp.trainset)
+        dev_dataset = WebQADataset(hp.devset)
+        test_dataset = WebQADataset(hp.testset)
 
-    train_iter = data.DataLoader(dataset=train_dataset,
-                                 batch_size=hp.batch_size,
-                                 shuffle=False,
-                                 sampler=sampler,
-                                 num_workers=4,
-                                 collate_fn=pad
-                                 )
-    dev_iter = data.DataLoader(dataset=dev_dataset,
-                               batch_size=hp.batch_size,
-                               shuffle=False,
-                               num_workers=4,
-                               collate_fn=pad
-                               )
-    test_iter = data.DataLoader(dataset=test_dataset,
-                                batch_size=hp.batch_size,
-                                shuffle=False,
-                                num_workers=4,
-                                collate_fn=pad
-                                )
+        samples_weight = train_dataset.get_samples_weight()
+        sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
+
+        train_iter = data.DataLoader(dataset=train_dataset,
+                                     batch_size=hp.batch_size,
+                                     shuffle=False,
+                                     sampler=sampler,
+                                     num_workers=4,
+                                     collate_fn=pad
+                                     )
+        dev_iter = data.DataLoader(dataset=dev_dataset,
+                                   batch_size=hp.batch_size,
+                                   shuffle=False,
+                                   num_workers=4,
+                                   collate_fn=pad
+                                   )
+        test_iter = data.DataLoader(dataset=test_dataset,
+                                    batch_size=hp.batch_size,
+                                    shuffle=False,
+                                    num_workers=4,
+                                    collate_fn=pad
+                                    )
 
 
-    PreModel = BertModel.from_pretrained('bert-base-chinese')
+        PreModel = BertModel.from_pretrained('bert-base-chinese')
 
-    if os.path.exists(hp.model_path):
-        print('=======载入模型=======')
-        model = torch.load(hp.model_path)
-    else:
-        print("=======初始化模型======")
-        model = Net(PreModel= PreModel)
-        if hp.device == 'cuda':
-            model = model.cuda()
-        model = nn.DataParallel(model)
-
-    optimizer = optim.Adam(model.parameters(), lr=hp.lr, weight_decay=hp.l2)
-
-    if not os.path.exists(os.path.split(hp.model_path)[0]):
-        os.makedirs(os.path.split(hp.model_path)[0])
-
-    print("First Eval On TestData")
-    test_acc = Eval(model, test_iter)
-    time.sleep(0.1)
-    best_acc = max(0,test_acc )
-    no_gain_rc = 0#效果不增加代数
-
-    for epoch in range(1, hp.n_epochs + 1):
-        print(f"=========TRAIN and EVAL at epoch={epoch}=========")
-        TrainOneEpoch(model, train_iter, dev_iter,test_iter, optimizer, hp)
-
-        # print(f"=========eval dev at epoch={epoch}=========")
-        # dev_acc = eval(model, dev_iter)
-
-        print(f"=========eval test at epoch={epoch}=========")
-        test_acc= eval(model, test_iter)
-
-        if test_acc >best_acc:
-            print("精度值由 {:.3f} 更新至 {:.3f} ".format(best_acc, test_acc))
-            best_acc = test_acc
-            print("=======保存模型=======")
-            torch.save(model, hp.model_path)
-            no_gain_rc = 0
+        if os.path.exists(hp.model_path):
+            print('=======载入模型=======')
+            model = torch.load(hp.model_path)
         else:
-            no_gain_rc = no_gain_rc+1
+            print("=======初始化模型======")
+            model = Net(PreModel= PreModel)
+            if hp.device == 'cuda':
+                model = model.cuda()
+            model = nn.DataParallel(model)
 
-        # 提前终止
-        if no_gain_rc > hp.early_stop:
-            print("连续{}个epoch没有提升，在epoch={}提前终止".format(no_gain_rc,epoch))
-            break
+        optimizer = optim.Adam(model.parameters(), lr=hp.lr, weight_decay=hp.l2)
+
+        if not os.path.exists(os.path.split(hp.model_path)[0]):
+            os.makedirs(os.path.split(hp.model_path)[0])
+
+        print("First Eval On TestData")
+        test_acc = Eval(model, test_iter)
+        time.sleep(0.1)
+        best_acc = max(0,test_acc )
+        no_gain_rc = 0#效果不增加代数
+
+        for epoch in range(1, hp.n_epochs + 1):
+            print(f"=========TRAIN and EVAL at epoch={epoch}=========")
+            TrainOneEpoch(model, train_iter, dev_iter,test_iter, optimizer, hp)
+
+            # print(f"=========eval dev at epoch={epoch}=========")
+            # dev_acc = eval(model, dev_iter)
+
+            print(f"=========eval test at epoch={epoch}=========")
+            test_acc= eval(model, test_iter)
+
+            if test_acc >best_acc:
+                print("精度值由 {:.3f} 更新至 {:.3f} ".format(best_acc, test_acc))
+                best_acc = test_acc
+                print("=======保存模型=======")
+                torch.save(model, hp.model_path)
+                no_gain_rc = 0
+            else:
+                no_gain_rc = no_gain_rc+1
+
+            # 提前终止
+            if no_gain_rc > hp.early_stop:
+                print("连续{}个epoch没有提升，在epoch={}提前终止".format(no_gain_rc,epoch))
+                break
+    elif hp.mode =="eval":
+
+        dev_dataset = WebQADataset(hp.devset)
+        test_dataset = WebQADataset(hp.testset)
+
+        dev_iter = data.DataLoader(dataset=dev_dataset,
+                                   batch_size=hp.batch_size,
+                                   shuffle=False,
+                                   num_workers=4,
+                                   collate_fn=pad
+                                   )
+        test_iter = data.DataLoader(dataset=test_dataset,
+                                    batch_size=hp.batch_size,
+                                    shuffle=False,
+                                    num_workers=4,
+                                    collate_fn=pad
+                                    )
+
+        if os.path.exists(hp.model_path):
+            print('=======载入模型=======')
+            model = torch.load(hp.model_path)
+            print("Eval On TestData")
+            test_acc = Eval(model, test_iter)
+            print("Eval On DevData")
+            dev_acc = Eval(model, dev_iter)
+        else:
+            print("没有可用模型！")
+
+    else:
+        if os.path.exists(hp.model_path):
+            print('=======载入模型=======')
+            model = torch.load(hp.model_path)
+            while True:
+                try:
+                    print("请输入问题：")
+                    question = input()
+                    if question == "OVER":
+                        print("问答结束！")
+                        break
+                    print("请输入文章：")
+                    evidence = input()
+                    print("正在解析...")
+                    answer = Demo(model,question,evidence)
+                    if answer:
+                        print("问题的答案是：{}".format(answer))
+                    else:
+                        print("文章中没有答案")
+                except:
+                    print("问答结束！")
+                    break
+
+        else:
+            print("没有可用模型！")
+
+
+
+

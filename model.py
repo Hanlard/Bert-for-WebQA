@@ -44,3 +44,17 @@ class Net(nn.Module):
         crf_loss = self.CRF.neg_log_likelihood_loss(feats=crf_logits, mask=mask, tags=y_2d )
         _, prediction = self.CRF.forward(feats=crf_logits, mask=mask)
         return prediction, crf_loss, y_2d
+
+    def predict(self,tokens_id_l):
+        tokens_x_2d = torch.LongTensor(tokens_id_l).to(self.device)
+        batch_size, seq_length = tokens_x_2d.size()
+        self.PreModel.eval()
+        with torch.no_grad():
+            emb, _ = self.PreModel(tokens_x_2d)
+        # CRF mask
+        mask = np.ones(shape=[batch_size, seq_length], dtype=np.uint8)
+        mask = torch.ByteTensor(mask).to(self.device)
+        # [batch_size, seq_len, 4]
+        crf_logits = self.CRF_fc1(emb)
+        _, prediction = self.CRF.forward(feats=crf_logits, mask=mask)
+        return prediction.to("cpu")
