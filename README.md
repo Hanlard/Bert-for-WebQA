@@ -13,7 +13,7 @@
 
 BaseLine论文：https://arxiv.org/abs/1607.06275
 
-模型的谷歌云共享连接：https://drive.google.com/open?id=1KHlCnT6VEpDCvtJp8FfwMtU5_ABrYzH9
+模型的谷歌云共享连接(训练好的模型)：https://drive.google.com/open?id=1KHlCnT6VEpDCvtJp8FfwMtU5_ABrYzH9
 
 ==================== 超参 ====================
 
