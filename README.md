@@ -29,7 +29,6 @@ BaseLine论文：https://arxiv.org/abs/1607.06275
            model_back = save_model/back_model.pt
            batch_size = 8
            
-=======载入模型=======
 
 Eval On TestData   Eval-Loss: 15.383  Eval-Result: acc = 0.796
 
