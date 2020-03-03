@@ -38,4 +38,4 @@ Eval On DevData    Eval-Loss: 13.986  Eval-Result: acc = 0.795
 
 聊天效果如下：
 
-![image text](https://github.com/Hanlard/Bert-for-WebQA/blob/master/问答截屏/聊天截图_LI.jpg)
+![image text](https://raw.githubusercontent.com/Hanlard/Bert-for-WebQA/master/问答截屏/聊天截图.jpg)
