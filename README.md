@@ -36,11 +36,11 @@ Eval On TestData   Eval-Loss: 15.383  Eval-Result: acc = 0.796
 
 Eval On DevData    Eval-Loss: 13.986  Eval-Result: acc = 0.795
 
-说明：上面效果只训练了半个epoch 因为疫情在家没有服务器，用谷歌云训练的
+说明：上面效果只训练了半个epoch 因为疫情在家没有服务器，用谷歌云训练的，设备是tesla-P100，回答一个问题平均耗时40ms。
 
 聊天效果如下：
 
-![image text](https://raw.githubusercontent.com/Hanlard/Bert-for-WebQA/master/问答截屏/lt.jpg)
+![image text](https://raw.githubusercontent.com/Hanlard/Bert-for-WebQA/master/问答截屏/截图.jpg)
 
 #### 运行
 
