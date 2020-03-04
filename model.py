@@ -18,10 +18,11 @@ class Net(nn.Module):
         kwargs = dict({'target_size': self.labelnum, 'device': self.device})
         self.CRF = CRF(**kwargs)
 
-    def forward(self,tokens_id_l, answer_offset_l, answer_seq_label_l):
+    def forward(self,tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l):
 
         ## 字符ID [batch_size, seq_length]
         tokens_x_2d = torch.LongTensor(tokens_id_l).to(self.device)
+        token_type_ids_2d = torch.LongTensor(token_type_ids_l).to(self.device)
 
         batch_size, seq_length = tokens_x_2d.size()
 
@@ -30,12 +31,11 @@ class Net(nn.Module):
 
         if self.training: # self.training基层的外部类
             self.PreModel.train()
-            emb, _ = self.PreModel(tokens_x_2d) #[batch_size, seq_len, hidden_size]
+            emb, _ = self.PreModel(input_ids=tokens_x_2d, token_type_ids=token_type_ids_2d) #[batch_size, seq_len, hidden_size]
         else:
             self.PreModel.eval()
             with torch.no_grad():
-                emb, _ = self.PreModel(tokens_x_2d)
-
+                emb, _ = self.PreModel(input_ids=tokens_x_2d, token_type_ids=token_type_ids_2d)
         # CRF mask
         mask = np.ones(shape=[batch_size, seq_length], dtype=np.uint8)
         mask = torch.ByteTensor(mask).to(self.device)

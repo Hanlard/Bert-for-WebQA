@@ -12,14 +12,35 @@ import torch.optim as optim
 import warnings
 warnings.filterwarnings('ignore')
 from tqdm import tqdm
-import time
+import random
 # 字符ID化
-
 tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--early_stop", type=int, default=5)
+parser.add_argument("--lr", type=float, default=1e-5)
+parser.add_argument("--l2", type=float, default=1e-5)
+parser.add_argument("--n_epochs", type=int, default=50)
+parser.add_argument("--Negweight", type=float, default=0.01)
+parser.add_argument("--trainset", type=str, default="data/me_train.json")
+parser.add_argument("--devset", type=str, default="data/me_validation.ann.json")
+parser.add_argument("--testset", type=str, default="data/me_test.ann.json")
+parser.add_argument("--device", type=str, default='cuda')
+parser.add_argument("--mode", type=str, default='train')  # eval / demo / train
+if os.name == "nt":
+    parser.add_argument("--model_path", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\latest_model.pt")
+    parser.add_argument("--model_back", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\\back_model.pt")
+    parser.add_argument("--batch_size", type=int, default=4)
+else:
+    parser.add_argument("--model_path", type=str, default="save_model/latest_model.pt")
+    parser.add_argument("--model_back", type=str, default="save_model/back_model.pt")
+    parser.add_argument("--batch_size", type=int, default=16)
+
+hp = parser.parse_args()
 
 class WebQADataset(data.Dataset):
     def __init__(self, fpath):
-
+        self.hp = hp
         self.questions, self.evidences, self.answer= [], [], []
         with open(fpath, 'r',encoding='utf-8') as f:
             data = json.load(f)#读取json文件内容
@@ -32,6 +53,9 @@ class WebQADataset(data.Dataset):
                     self.questions.append(question)
                     self.evidences.append(evi_item['evidence'])
                     self.answer.append(evi_item['answer'][0])
+        shuffled_l = list(zip(self.questions, self.evidences, self.answer))
+        random.shuffle(shuffled_l)
+        self.questions[:], self.evidences[:], self.answer[:] = zip(*shuffled_l)
 
     def __len__(self):
         return len(self.answer)
@@ -50,11 +74,11 @@ class WebQADataset(data.Dataset):
         # We give credits only to the first piece.
         q, e, a = self.questions[idx], self.evidences[idx], self.answer[idx]
 
-        ## 测试集中最长 Evidence 244，最长 Answer 89，所以将 max_len = 400
         tokens = tokenizer.tokenize('[CLS]'+q+'[SEP]'+e)# list
         if len(tokens)>512:
             tokens=tokens[:512]
         tokens_id = tokenizer.convert_tokens_to_ids(tokens)
+        token_type_ids = [0 if i <= tokens_id .index(102) else 1 for i in range(len(tokens_id ))]
         answer_offset = (-1, -1)
         answer_seq_label = len(tokens_id) * [0]
         if a != 'no_answer':
@@ -64,32 +88,32 @@ class WebQADataset(data.Dataset):
                 answer_seq_label[answer_offset[0]:answer_offset[1]] = [1]*(len(answer_tokens))
             else:# self.FindOffset 返回False
                 answer_offset = (-1, -1)
+        return tokens, tokens_id, token_type_ids, answer_offset, answer_seq_label
 
-
-        return tokens, tokens_id, answer_offset, answer_seq_label
-
-    def get_samples_weight(self):
+    def get_samples_weight(self,Negweight):
         samples_weight = []
         for ans in self.answer:
             if ans != 'no_answer':
                 samples_weight.append(1.0)
             else:
-                samples_weight.append(0.01)
+                samples_weight.append(Negweight)
         return np.array(samples_weight)
 
 def pad(batch):
-    tokens_l, tokens_id_l, answer_offset_l, answer_seq_label_l= list(map(list, zip(*batch)))
+    tokens_l, tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l= list(map(list, zip(*batch)))
     maxlen = np.array([len(sen) for sen in tokens_l]).max()
     ### pad和截断
     for i in range(len(tokens_l)):
         tokens = tokens_l[i]
         tokens_id= tokens_id_l[i]
-        answer_offset = answer_offset_l[i]
+        # answer_offset = answer_offset_l[i]
         answer_seq_label = answer_seq_label_l[i]
+        token_type_ids = token_type_ids_l[i]
         tokens_l[i] = tokens + (maxlen - len(tokens))*['[PAD]']
+        token_type_ids_l[i] = token_type_ids + (maxlen - len(tokens))*[1]
         tokens_id_l[i] =tokens_id + (maxlen - len(tokens))*tokenizer.convert_tokens_to_ids(['[PAD]'])
         answer_seq_label_l[i] = answer_seq_label + [0]*(maxlen - len(tokens))
-    return tokens_l, tokens_id_l, answer_offset_l, answer_seq_label_l
+    return tokens_l, tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l
 
 def result_metric(prediction_all, y_2d_all):
     total_num=0
@@ -101,13 +125,15 @@ def result_metric(prediction_all, y_2d_all):
         total_num = total_num + batch_size
     return toral_cur/total_num
 
-def TrainOneEpoch(model, train_iter, dev_iter,test_iter, optimizer, hp):
+def TrainOneEpoch(model, train_iter, dev_iter, test_iter, optimizer, hp):
     model.train()
     prediction_all, y_2d_all = [], []
+
+    best_acc = 0
     for i, batch in enumerate(tqdm(train_iter)):
-        _, tokens_id_l, answer_offset_l, answer_seq_label_l = batch
+        _, tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l = batch
         optimizer.zero_grad()
-        prediction, loss, y_2d  = model.module.forward(tokens_id_l, answer_offset_l, answer_seq_label_l)
+        prediction, loss, y_2d  = model.module.forward(tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l)
         prediction_all.append(prediction)
         y_2d_all.append(y_2d)
         # nn.utils.clip_grad_norm_(model.parameters(), 3.0)#设置梯度截断阈值
@@ -118,13 +144,13 @@ def TrainOneEpoch(model, train_iter, dev_iter,test_iter, optimizer, hp):
             print("<Last 100 Steps MeanValue> Setp-{} Loss:{:.3f} acc:{:.3f}".format(i,loss.item(),acc))
             prediction_all, y_2d_all = [], []
         if i % 1000 == 0:
-            print("=======保存备份=======")
-            torch.save(model, hp.model_back)
-            # print('———Eval on DevData————')
+            print("Eval on Devset...")
             dev_acc = Eval(model, dev_iter)
-            # print("——————————————————————")
-            # print('====== eval test ======')
-            # test_acc = Eval(model, test_iter)
+            if dev_acc > best_acc:
+                best_acc = dev_acc
+                if i>1000:
+                    print("Devdata 精度提升 备份模型至{}".format(hp.model_back))
+                    torch.save(model, hp.model_back)
             model.train()
 
 
@@ -133,8 +159,8 @@ def Eval(model, iterator):
     model.eval()
     prediction_all, crf_loss_all, y_2d_all = [],[],[]
     for i, batch in enumerate(iterator):
-        _, tokens_id_l, answer_offset_l, answer_seq_label_l = batch
-        prediction, crf_loss, y_2d  = model.module.forward(tokens_id_l, answer_offset_l, answer_seq_label_l)
+        _, tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l = batch
+        prediction, crf_loss, y_2d = model.module.forward(tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l)
         prediction_all.append(prediction)
         y_2d_all.append(y_2d)
         crf_loss_all.append(crf_loss.to("cpu").item())
@@ -156,30 +182,7 @@ def Demo(model, q, e):
             answer = answer + tokens[i]
     return answer
 
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--early_stop", type=int, default=5)
-    parser.add_argument("--lr", type=float, default=1e-5)
-    parser.add_argument("--l2", type=float, default=1e-5)
-    parser.add_argument("--n_epochs", type=int, default=50)
-    parser.add_argument("--logdir", type=str, default="logdir")
-    parser.add_argument("--trainset", type=str, default="data/me_train.json")
-    parser.add_argument("--devset", type=str, default="data/me_validation.ann.json")
-    parser.add_argument("--testset", type=str, default="data/me_test.ann.json")
-    parser.add_argument("--device", type=str, default='cuda')
-    parser.add_argument("--mode", type=str, default='train')# eval / demo
-    if os.name == "nt":
-        parser.add_argument("--model_path", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\latest_model.pt")
-        parser.add_argument("--model_back", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\\back_model.pt")
-        parser.add_argument("--batch_size", type=int, default=4)
-    else:
-        parser.add_argument("--model_path", type=str, default="save_model/latest_model.pt")
-        parser.add_argument("--model_back", type=str, default="save_model/back_model.pt")
-        parser.add_argument("--batch_size", type=int, default=16)
-
-    hp = parser.parse_args()
     print("="*20+" 超参 "+"="*20)
     for para in hp.__dict__:
         print(" " * (20 - len(para)), para, "=", hp.__dict__[para])
@@ -189,7 +192,7 @@ if __name__ == "__main__":
         dev_dataset = WebQADataset(hp.devset)
         test_dataset = WebQADataset(hp.testset)
 
-        samples_weight = train_dataset.get_samples_weight()
+        samples_weight = train_dataset.get_samples_weight(hp.Negweight)
         sampler = torch.utils.data.WeightedRandomSampler(samples_weight, len(samples_weight))
 
         train_iter = data.DataLoader(dataset=train_dataset,
@@ -212,7 +215,6 @@ if __name__ == "__main__":
                                     collate_fn=pad
                                     )
 
-
         PreModel = BertModel.from_pretrained('bert-base-chinese')
 
         if os.path.exists(hp.model_path):
@@ -232,7 +234,7 @@ if __name__ == "__main__":
 
         print("First Eval On TestData")
         test_acc = Eval(model, test_iter)
-        time.sleep(0.1)
+
         best_acc = max(0,test_acc )
         no_gain_rc = 0#效果不增加代数
 
@@ -287,7 +289,7 @@ if __name__ == "__main__":
         else:
             print("没有可用模型！")
 
-    else:
+    elif hp.mode =="demo":
         if os.path.exists(hp.model_path):
             print('=======载入模型=======')
             model = torch.load(hp.model_path)
@@ -301,7 +303,7 @@ if __name__ == "__main__":
                         break
                     print("请输入文章：")
                     evidence = input()
-                    print("正在解析...")
+                    # print("正在解析...")
                     start = time.time()
                     answer = Demo(model,question,evidence)
                     end = time.time()
@@ -314,10 +316,10 @@ if __name__ == "__main__":
                 except:
                     print("问答结束！")
                     break
-
         else:
             print("没有可用模型！")
-
+    else:
+        print("--mode请选择：train/eval/demo, 请注意拼写")
 
 
 
