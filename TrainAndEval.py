@@ -183,6 +183,7 @@ def Eval(model, iterator):
 
     model.eval()
     CRFprediction_all, CRFloss_all, IsQAloss_all, y_CRF_all, IsQA_prediction_all, y_IsQA_all= [],[],[],[],[],[]
+    final_pred_all = []
     for i, batch in enumerate(iterator):
         _, tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l, IsQA_l = batch
         IsQA_prediction, CRFprediction, IsQA_loss, crf_loss, y_2d, y_IsQA_2d  = model.module.forward(tokens_id_l, token_type_ids_l, answer_offset_l, answer_seq_label_l,IsQA_l)
@@ -195,15 +196,23 @@ def Eval(model, iterator):
         IsQA_prediction_all.append(IsQA_prediction)
         y_IsQA_all.append(y_IsQA_2d)
 
+        ## 综合预测
+        # [batch_size,seq_len]
+        final_pred = torch.LongTensor(np.zeros(CRFprediction.size())).to("cuda")
+        final_pred[IsQA_prediction.squeeze(dim=-1)==1] = CRFprediction[IsQA_prediction.squeeze(dim=-1)==1]
+        final_pred_all.append(final_pred)
 
         CRFloss_all.append(crf_loss.to("cpu").item())
         IsQAloss_all.append(IsQA_loss.to("cpu").item())
 
+
     accCRF = result_metric(CRFprediction_all, y_CRF_all)
     accIsQA = result_metric(IsQA_prediction_all, y_IsQA_all)
+    accFinal = result_metric(final_pred_all, y_CRF_all)
 
     print("<本次评估结果> IsQA-Loss: {:.3f} CRF-Loss: {:.3f} CRF-Result: accCRF = {:.3f} "
-          "IsQA-Result: accIsQA = {:.3f}".format(np.mean(IsQAloss_all), np.mean(CRFloss_all), accCRF, accIsQA))
+          "IsQA-Result: accIsQA = {:.3f} Final-Result：accFinal = {:.3f}".
+          format(np.mean(IsQAloss_all), np.mean(CRFloss_all), accCRF, accIsQA, accFinal))
 
     return accIsQA, accCRF
 
