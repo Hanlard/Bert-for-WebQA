@@ -29,19 +29,21 @@ BaseLine论文：https://arxiv.org/abs/1607.06275
 
 ==================== 超参 ====================
 
-           early_stop = 5
+           early_stop = 1
                    lr = 1e-05
                    l2 = 1e-05
-             n_epochs = 50
-               logdir = logdir
+             n_epochs = 5
+            Negweight = 0.01
              trainset = data/me_train.json
                devset = data/me_validation.ann.json
               testset = data/me_test.ann.json
+       knowledge_path = data/me_test.ann.json
+        Stopword_path = data/stop_words.txt
                device = cuda
-                 mode = eval
-           model_path = save_model/latest_model备份.pt
+                 mode = train
+           model_path = save_model/latest_model.pt
            model_back = save_model/back_model.pt
-           batch_size = 8
+           batch_size = 16
            
 
 Eval On TestData   Eval-Loss: 15.383  Eval-Result: acc = 0.796
