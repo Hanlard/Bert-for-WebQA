@@ -7,7 +7,19 @@
 
 输入：[‘CLS’]+Question+[‘SEP’]+Evidence 字符串
 
-输出：0-1 序列， Evidence 中出现答案的位置为 1 ，其余为 0
+模型思路：采用多任务联合训练的方式，共两个任务：
+
+           任务1. 使用"[CLS]"来判断两个句子是否是Quesntion-Evidence的关系；
+
+           任务2. 使用Question+[‘SEP’]+Evidence的BERT表达 + CRF模型 进行序列标注，找出Evidence中的答案。
+
+输出：
+
+           任务1. [batch_size,1] 的0-1 序列;
+           
+           任务2. [batch_size, seq_len] 的0-1 序列, Evidence 中出现答案的位置为 1 ，其余为 0.
+
+备注： 选择使用"[CLS]"做Quesntion-Evidence关系判断的原因是，做大规模文档检索时，通常回返回一些带有迷惑性的负样本，用"[CLS]"可以进行二次过滤。
 
 数据集来自：https://pan.baidu.com/s/1QUsKcFWZ7Tg1dk_AbldZ1A 提取码：2dva
 
@@ -17,19 +29,21 @@ BaseLine论文：https://arxiv.org/abs/1607.06275
 
 ==================== 超参 ====================
 
-           early_stop = 5
+           early_stop = 1
                    lr = 1e-05
                    l2 = 1e-05
-             n_epochs = 50
-               logdir = logdir
+             n_epochs = 5
+            Negweight = 0.01
              trainset = data/me_train.json
                devset = data/me_validation.ann.json
               testset = data/me_test.ann.json
+       knowledge_path = data/me_test.ann.json
+        Stopword_path = data/stop_words.txt
                device = cuda
-                 mode = eval
-           model_path = save_model/latest_model备份.pt
+                 mode = train
+           model_path = save_model/latest_model.pt
            model_back = save_model/back_model.pt
-           batch_size = 8
+           batch_size = 16
            
 
 Eval On TestData   Eval-Loss: 15.383  Eval-Result: acc = 0.796
