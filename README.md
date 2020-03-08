@@ -9,11 +9,15 @@
 
 模型思路：采用多任务联合训练的方式，共两个任务：
 
-任务（一）使用"[CLS]"来判断两个句子是否是Quesntion-Evidence的关系；
+           任务1. 使用"[CLS]"来判断两个句子是否是Quesntion-Evidence的关系；
 
-任务（二）使用Question+[‘SEP’]+Evidence的BERT表达 + CRF模型 进行序列标注，找出Evidence中的答案。
+           任务2. 使用Question+[‘SEP’]+Evidence的BERT表达 + CRF模型 进行序列标注，找出Evidence中的答案。
 
-输出：任务（一）：[batch_size,1] 的0-1 序列，任务（二）：[batch_size, seq_len] 的0-1 序列, Evidence 中出现答案的位置为 1 ，其余为 0
+输出：
+
+           任务1. [batch_size,1] 的0-1 序列;
+           
+           任务2. [batch_size, seq_len] 的0-1 序列, Evidence 中出现答案的位置为 1 ，其余为 0.
 
 备注： 选择使用"[CLS]"做Quesntion-Evidence关系判断的原因是，做大规模文档检索时，通常回返回一些带有迷惑性的负样本，用"[CLS]"可以进行二次过滤。
 
