@@ -19,13 +19,13 @@
            
            任务2. [batch_size, seq_len] 的0-1 序列, Evidence 中出现答案的位置为 1 ，其余为 0。
 
-#### 备注： 选择使用"[CLS]"做Quesntion-Evidence关系判断的原因是，做大规模文档检索时，通常回返回一些带有迷惑性的负样本，用"[CLS]"可以进行二次过滤。
+备注： 选择使用"[CLS]"做Quesntion-Evidence关系判断的原因是，做大规模文档检索时，通常回返回一些带有迷惑性的负样本，用"[CLS]"可以进行二次过滤。
 
 #### 训练精度     
 
-#### Eval On TestData   Eval-Loss: 15.383  Eval-Result（召回）: R = 0.796
+           Eval On TestData   Eval-Loss: 15.383  Eval-Result（召回）: R = 0.796
 
-#### Eval On DevData    Eval-Loss: 13.986  Eval-Result（召回）: R = 0.795
+           Eval On DevData    Eval-Loss: 13.986  Eval-Result（召回）: R = 0.795
 
 数据集来自：https://pan.baidu.com/s/1QUsKcFWZ7Tg1dk_AbldZ1A 提取码：2dva
 
@@ -97,3 +97,6 @@ BaseLine论文：https://arxiv.org/abs/1607.06275
 
            智能问答 %run TrainAndEval.py  --mode="QA" --model_path='save_model/latest_model.pt'
 
+## 不足
+
+目前模型对正确的Evidence能高准确度识别出正确答案，但是很难分辨有迷惑性的错误Evidence，下一步需要对"[CLS]"识别错误Evidence进行提升。
