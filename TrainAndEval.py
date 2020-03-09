@@ -16,6 +16,7 @@ from DocumentRetrieval import Knowledge
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer, TfidfTransformer
 import random
 import jieba
+import collections
 # 字符ID化
 tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
 
@@ -275,9 +276,10 @@ def prepare_knowledge(knowledge_path,Stopword_path):
 #     return result
 
 def QA(model, question, xu, knowledge):
-    xu.reverse()# 按相关度从大到小 #[[1],[2],[3],...]
-    xu = [item[0] for item in xu]
-    result = {}
+    # 按相关度从大到小 #[1,2,3,...]
+    xu = [item[0] for item in xu].reverse()
+    ## 有序字典 按相关度从大到小插入key
+    result =collections.OrderedDict()
     q = question
     tokens_id_l = []
     token_type_ids_l = []
