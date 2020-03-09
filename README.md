@@ -54,20 +54,27 @@ Eval On DevData    Eval-Loss: 13.986  Eval-Result: acc = 0.795
 
 ## 问答模块
 
-问答模块设计了两种功能：1.带有文章的阅读问答；2.根据问题从知识库中快速检索文章，再进行阅读问答的智能问答，问题的答案要在知识库里面有才行！
+问答模块设计了两种功能：
 
-阅读问答效果如下：
+1.带有文章的阅读问答；
+
+2.根据问题从知识库中快速检索文章，再进行阅读问答的智能问答，问题的答案要在知识库里面有才行！
+
+### 阅读问答效果如下：
+
 
 ![image text](https://github.com/Hanlard/Bert-for-WebQA/blob/master/%E9%97%AE%E7%AD%94%E6%88%AA%E5%B1%8F/%E9%98%85%E8%AF%BB%E9%97%AE%E7%AD%94.jpg)
 
-智能问答效果如下：
+#### 智能问答效果如下：
+
+
 ![image text](https://github.com/Hanlard/Bert-for-WebQA/blob/master/%E9%97%AE%E7%AD%94%E6%88%AA%E5%B1%8F/%E6%99%BA%E8%83%BD%E9%97%AE%E7%AD%94.png)
 
 ## 文档检索
 
 步骤：0. 准备知识库 1. jieba分词 2. 去停用词 3. 使用sklearn计算TF-IDF矩阵 4.根据Query和知识库的TF-IDF矩阵计算排序出相关度较高的10篇文章。
 
-#### 运行
+## 运行
 
 训练 %run TrainAndEval.py --batch_size=8 --mode="train" --model_path='save_model/latest_model.pt'
 
