@@ -176,7 +176,6 @@ def TrainOneEpoch(model, train_iter, dev_iter, test_iter, optimizer, hp):
                 if i>1000:
                     print("Devdata 精度提升 备份模型至{}".format(hp.model_back))
                     torch.save(model, hp.model_back)
-            model.train()
 
 
 def Eval(model, iterator):
@@ -227,53 +226,95 @@ def Demo(model, q, e):
     IsQA_prediction = IsQA_prediction.numpy()[0]
     answer = ""
     if IsQA_prediction==1:
-        for i in range(len(tokens)):
+        for i in range(len(tokens[1:])):
             if CRFprediction[i].item()==1:
-                answer = answer + tokens[i]
+                answer = answer + tokens[1:][i]
     return answer
 
-# def prepare_knowledge(knowledge_path,Stopword_path):
-#     def del_stopword(line, Stopword, ngram=False):
-#         line = list(jieba.cut(line))
-#         new = [word for word in line if word not in Stopword]
-#         if ngram:  # 返回2元语法
-#             N = len(line)
-#             for i, word_i in enumerate(line):
-#                 for j in range(min(i + 1, N - 1), N):
-#                     word_j = line[j]
-#                     if word_i not in Stopword and word_j not in Stopword:
-#                         new.append(word_i + ' ' + word_j)
-#         return new  # [w1,w2,...]
-#     print("正在准备知识库...")
-#     dataset = Knowledge(knowledge_path)
-#     with open(Stopword_path, "r", encoding="gbk") as f:
-#         Stopword = set(f.read().splitlines())
-#     documents = dataset.evidences
-#     corpus = [" ".join(del_stopword(e, Stopword)) for e in documents]
-#     vectorizer = CountVectorizer()  # ngram_range=(1,2)
-#     count = vectorizer.fit_transform(corpus)
-#     # 计算TF-IDF向量
-#     TFIDF = TfidfTransformer()
-#     tfidf_matrix = TFIDF.fit_transform(count)
-#     d_matrix = np.array(tfidf_matrix.toarray())
-#     vocabulary_ = vectorizer.vocabulary_
-#     return d_matrix, vocabulary_, del_stopword, Stopword, dataset
-#
+def prepare_knowledge(knowledge_path,Stopword_path):
+    def del_stopword(line, Stopword, ngram=False):
+        line = list(jieba.cut(line))
+        new = [word for word in line if word not in Stopword]
+        if ngram:  # 返回2元语法
+            N = len(line)
+            for i, word_i in enumerate(line):
+                for j in range(min(i + 1, N - 1), N):
+                    word_j = line[j]
+                    if word_i not in Stopword and word_j not in Stopword:
+                        new.append(word_i + ' ' + word_j)
+        return new  # [w1,w2,...]
+    print("正在准备知识库...")
+    dataset = Knowledge(knowledge_path)
+    with open(Stopword_path, "r", encoding="gbk") as f:
+        Stopword = set(f.read().splitlines())
+    documents = dataset.evidences
+    corpus = [" ".join(del_stopword(e, Stopword)) for e in documents]
+    vectorizer = CountVectorizer()  # ngram_range=(1,2)
+    count = vectorizer.fit_transform(corpus)
+    # 计算TF-IDF向量
+    TFIDF = TfidfTransformer()
+    tfidf_matrix = TFIDF.fit_transform(count)
+    d_matrix = np.array(tfidf_matrix.toarray())
+    vocabulary_ = vectorizer.vocabulary_
+    return d_matrix, vocabulary_, del_stopword, Stopword, dataset
+
 # def QA(model, question, xu, knowledge, q_list):
 #     xu.reverse()# 按相关度从大到小
 #     result = {}
 #     for index in xu:#[[1],[2],[3],...]
 #         q=question
 #         e=knowledge.evidences[index[0]]
-#
 #         answer=Demo(model,q,e)
 #         print("answer:",answer)
 #         print("evidence:",e)
 #         if answer in result:
 #             result[answer] = result[answer] + 1
 #         else:
-#             result[answer] = 1
+#             if answer:
+#                 result[answer] = 1
 #     return result
+
+def QA(model, question, xu, knowledge):
+    xu.reverse()# 按相关度从大到小 #[[1],[2],[3],...]
+    xu = [item[0] for item in xu]
+    result = {}
+    q = question
+    tokens_id_l = []
+    token_type_ids_l = []
+    tokens_l = []
+    for index in xu:
+        e=knowledge.evidences[index]
+        tokens = tokenizer.tokenize('[CLS]' + q + '[SEP]' + e)  # list
+        if len(tokens) > 512:
+            tokens = tokens[:512]
+        tokens_id = tokenizer.convert_tokens_to_ids(tokens)  # [101,...,102,...]
+        token_type_ids = [0 if i <= tokens_id.index(102) else 1 for i in range(len(tokens_id))]
+        tokens_id_l.append(tokens_id)
+        token_type_ids_l.append(token_type_ids)
+        tokens_l.append(tokens[1:])
+    ## pad
+    max_len = max([len(x) for x in tokens_id_l])
+    tokens_id_l = [x+(max_len - len(x))*tokenizer.convert_tokens_to_ids(['[PAD]']) for x in tokens_id_l ]
+    token_type_ids_l = [x+(max_len - len(x))*[1] for x in token_type_ids_l ]
+
+    ## 批预测
+    IsQA_prediction, CRFprediction = model.module.predict(tokens_id_l,token_type_ids_l)
+    CRFprediction = CRFprediction.numpy() #[batch_size, max_len]
+    IsQA_prediction = IsQA_prediction.numpy()#[batch_size, 1]
+    for k in range(len(xu)):
+        answer = ""
+        tokens = tokens_l[k]
+        if IsQA_prediction[k]==1:
+            for i in range(len(tokens)):
+                if CRFprediction[k,i].item()==1:
+                    answer = answer + tokens[i]
+        # 记录answer
+        if answer in result:
+            result[answer] = result[answer] + 1
+        else:
+            if answer:
+                result[answer] = 1
+    return result
 
 
 
@@ -390,66 +431,60 @@ if __name__ == "__main__":
             model = torch.load(hp.model_path)
             ques_num=1
             while True:
-                try:
-                    print("请输入问题-{}:".format(ques_num))
-                    question = input()
-                    if question == "OVER":
-                        print("问答结束！")
-                        break
-                    print("请输入文章：")
-                    evidence = input()
-                    # print("正在解析...")
-                    start = time.time()
-                    answer = Demo(model,question,evidence)
-                    end = time.time()
-                    if answer:
-                        print("问题-{}的答案是：{}".format(ques_num,answer))
-                        print("耗时:{:.2f}毫秒".format((end-start)*1e3))
-                    else:
-                        print("文章中没有答案")
-                    ques_num = ques_num + 1
-                except:
+                print("请输入问题-{}:".format(ques_num))
+                question = input()
+                if question == "OVER":
                     print("问答结束！")
                     break
+                print("请输入文章：")
+                evidence = input()
+                # print("正在解析...")
+                start = time.time()
+                answer = Demo(model,question,evidence)
+                end = time.time()
+                if answer:
+                    print("问题-{}的答案是：{}".format(ques_num,answer))
+                    print("耗时:{:.2f}毫秒".format((end-start)*1e3))
+                else:
+                    print("文章中没有答案")
+                ques_num = ques_num + 1
         else:
             print("没有可用模型！")
-    # elif hp.mode =="QA":
-    #     if os.path.exists(hp.model_path):
-    #         print('=======载入模型=======')
-    #         model = torch.load(hp.model_path)
-    #         ques_num=1
-    #         #准备知识库
-    #         d_matrix, vocabulary_, del_stopword, Stopword, knowledge = prepare_knowledge(hp.knowledge_path,hp.Stopword_path)
-    #         while True:
-    #             # try:
-    #             print("请输入问题-{}:".format(ques_num))
-    #             question = input()
-    #             if question == "OVER":
-    #                 print("问答结束！")
-    #                 break
-    #             # 创建问句tf-idf向量
-    #             q_vector = np.zeros([1, d_matrix.shape[1]])
-    #             q_list = del_stopword(question,Stopword,ngram=False)
-    #             for word in q_list:
-    #                 if word in vocabulary_:
-    #                     q_vector[0,vocabulary_[word]] = 1.
-    #             dot = (np.mat(d_matrix))*(np.mat(q_vector.T))
-    #             xu=dot.argsort(0)[-5:].tolist()# [[12], [37], [10]] 最大的五个索引
-    #
-    #             start = time.time()
-    #             answer = QA(model, question, xu, knowledge, q_list)
-    #             end = time.time()
-    #
-    #             print("问题-{}的答案是:".format(ques_num))
-    #             print(answer)
-    #             print("耗时:{:.2f}毫秒".format((end-start)*1e3))
-    #
-    #             ques_num = ques_num + 1
-    #             # except:
-    #             #     print("问答结束！")
-    #             #     break
-    #     else:
-    #         print("没有可用模型！")
+    elif hp.mode =="QA":
+        if os.path.exists(hp.model_path):
+            print('=======载入模型=======')
+            model = torch.load(hp.model_path)
+            ques_num=1
+            #准备知识库
+            d_matrix, vocabulary_, del_stopword, Stopword, knowledge = prepare_knowledge(hp.knowledge_path,hp.Stopword_path)
+            while True:
+                # try:
+                print("请输入问题-{}:".format(ques_num))
+                question = input()
+                if question == "OVER":
+                    print("问答结束！")
+                    break
+
+                # 创建问句tf-idf向量
+                q_vector = np.zeros([1, d_matrix.shape[1]])
+                q_list = del_stopword(question,Stopword,ngram=False)
+                for word in q_list:
+                    if word in vocabulary_:
+                        q_vector[0,vocabulary_[word]] = 1.
+                dot = (np.mat(d_matrix))*(np.mat(q_vector.T))
+                xu=dot.argsort(0)[-15:].tolist()# [[12], [37], [10]] 最大的15个索引
+
+                start = time.time()
+                answer = QA(model, question, xu, knowledge)
+                end = time.time()
+
+                print("问题-{}的答案是:".format(ques_num))
+                print(answer)
+                print("耗时:{:.2f}毫秒".format((end-start)*1e3))
+
+                ques_num = ques_num + 1
+        else:
+            print("没有可用模型！")
     else:
         print("--mode请选择：train/eval/demo, 请注意拼写")
 
