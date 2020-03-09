@@ -72,7 +72,15 @@ Eval On DevData    Eval-Loss: 13.986  Eval-Result: acc = 0.795
 
 ## 文档检索
 
-步骤：0. 准备知识库 1. jieba分词 2. 去停用词 3. 使用sklearn计算TF-IDF矩阵 4.根据Query和知识库的TF-IDF矩阵计算排序出相关度较高的10篇文章。
+步骤-0 准备知识库 
+
+步骤-1 jieba分词 
+
+步骤-2 去停用词 
+
+步骤-3 基于分词和二元语法词袋，使用sklearn计算TF-IDF矩阵 
+
+步骤-4 根据Query和知识库的TF-IDF矩阵计算排序出相关度较高的10篇文章。
 
 ## 运行
 
