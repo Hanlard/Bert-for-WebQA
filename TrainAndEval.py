@@ -481,7 +481,8 @@ if __name__ == "__main__":
                 end = time.time()
 
                 print("问题-{}的答案是:".format(ques_num))
-                print(answer)
+                for ai,a in enumerate(answer):
+                    print("推荐答案No.{}: {}".format(ai+1,a))
                 print("耗时:{:.2f}毫秒".format((end-start)*1e3))
 
                 ques_num = ques_num + 1
