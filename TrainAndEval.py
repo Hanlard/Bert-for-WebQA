@@ -156,7 +156,7 @@ def TrainOneEpoch(model, train_iter, dev_iter, test_iter, optimizer, hp):
         IsQAloss_all.append(IsQA_loss.to("cpu").item())
         loss = IsQA_loss + crf_loss
 
-        # nn.utils.clip_grad_norm_(model.parameters(), 3.0)#设置梯度截断阈值
+        nn.utils.clip_grad_norm_(model.parameters(), 3.0)#设置梯度截断阈值
         loss.backward()## 计算梯度
         optimizer.step()## 根据计算的梯度更新网络参数
 
@@ -177,6 +177,7 @@ def TrainOneEpoch(model, train_iter, dev_iter, test_iter, optimizer, hp):
                 if i>1000:
                     print("Devdata 精度提升 备份模型至{}".format(hp.model_back))
                     torch.save(model, hp.model_back)
+            model.train()
 
 
 def Eval(model, iterator):
@@ -277,7 +278,8 @@ def prepare_knowledge(knowledge_path,Stopword_path):
 
 def QA(model, question, xu, knowledge):
     # 按相关度从大到小 #[1,2,3,...]
-    xu = [item[0] for item in xu].reverse()
+    xu.reverse()
+    xu = [item[0] for item in xu]
     ## 有序字典 按相关度从大到小插入key
     result =collections.OrderedDict()
     q = question
