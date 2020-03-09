@@ -3,6 +3,8 @@
 框架 ，数据选择百度的 WebQA 问答数据集， 类似于斯坦福智能问答数据集，
 使用 Bert-base-chinese 和 CRF 模型 做基础，模型可以根据需要持续更新。
 
+## 模型
+
 #### 输入：[‘CLS’]+Question+[‘SEP’]+Evidence 字符串
 
 #### 模型框架：采用多任务联合训练的方式，共两个任务：
@@ -50,9 +52,20 @@ Eval On DevData    Eval-Loss: 13.986  Eval-Result: acc = 0.795
 
 说明：上面效果只训练了半个epoch 因为疫情在家没有服务器，用谷歌云训练的，设备是tesla-P100，回答一个问题平均耗时40ms。
 
-聊天效果如下：
+## 问答模块
 
-![image text](https://raw.githubusercontent.com/Hanlard/Bert-for-WebQA/master/问答截屏/截图.jpg)
+问答模块设计了两种功能：1.带有文章的阅读问答；2.根据问题从知识库中快速检索文章，再进行阅读问答的智能问答，问题的答案要在知识库里面有才行！
+
+阅读问答效果如下：
+
+![image text](https://github.com/Hanlard/Bert-for-WebQA/blob/master/%E9%97%AE%E7%AD%94%E6%88%AA%E5%B1%8F/%E9%98%85%E8%AF%BB%E9%97%AE%E7%AD%94.jpg)
+
+智能问答效果如下：
+![image text](https://github.com/Hanlard/Bert-for-WebQA/blob/master/%E9%97%AE%E7%AD%94%E6%88%AA%E5%B1%8F/%E6%99%BA%E8%83%BD%E9%97%AE%E7%AD%94.png)
+
+## 文档检索
+
+步骤：0. 准备知识库 1. jieba分词 2. 去停用词 3. 使用sklearn计算TF-IDF矩阵 4.根据Query和知识库的TF-IDF矩阵计算排序出相关度较高的10篇文章。
 
 #### 运行
 
@@ -60,5 +73,7 @@ Eval On DevData    Eval-Loss: 13.986  Eval-Result: acc = 0.795
 
 评估 %run TrainAndEval.py --mode="eval" --model_path='save_model/latest_model.pt'
 
-对话 %run TrainAndEval.py  --mode="demo" --model_path='save_model/latest_model.pt'
+阅读问答 %run TrainAndEval.py  --mode="demo" --model_path='save_model/latest_model.pt'
+
+智能问答 %run TrainAndEval.py  --mode="QA" --model_path='save_model/latest_model.pt'
 
