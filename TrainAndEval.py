@@ -33,14 +33,9 @@ parser.add_argument("--knowledge_path", type=str, default="data/me_test.ann.json
 parser.add_argument("--Stopword_path",type=str, default= 'data/stop_words.txt')
 parser.add_argument("--device", type=str, default='cuda')
 parser.add_argument("--mode", type=str, default='train')  # eval / demo / train / QA
-if os.name == "nt":
-    parser.add_argument("--model_path", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\latest_model.pt")
-    parser.add_argument("--model_back", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\\back_model.pt")
-    parser.add_argument("--batch_size", type=int, default=4)
-else:
-    parser.add_argument("--model_path", type=str, default="save_model/latest_model.pt")
-    parser.add_argument("--model_back", type=str, default="save_model/back_model.pt")
-    parser.add_argument("--batch_size", type=int, default=16)
+parser.add_argument("--model_path", type=str, default="save_model/latest_model.pt")
+parser.add_argument("--model_back", type=str, default="save_model/back_model.pt")
+parser.add_argument("--batch_size", type=int, default=16)
 
 hp = parser.parse_args()
 
@@ -259,22 +254,6 @@ def prepare_knowledge(knowledge_path,Stopword_path):
     d_matrix = np.array(tfidf_matrix.toarray())
     vocabulary_ = vectorizer.vocabulary_
     return d_matrix, vocabulary_, del_stopword, Stopword, dataset
-
-# def QA(model, question, xu, knowledge, q_list):
-#     xu.reverse()# 按相关度从大到小
-#     result = {}
-#     for index in xu:#[[1],[2],[3],...]
-#         q=question
-#         e=knowledge.evidences[index[0]]
-#         answer=Demo(model,q,e)
-#         print("answer:",answer)
-#         print("evidence:",e)
-#         if answer in result:
-#             result[answer] = result[answer] + 1
-#         else:
-#             if answer:
-#                 result[answer] = 1
-#     return result
 
 def QA(model, question, xu, knowledge):
     # 按相关度从大到小 #[1,2,3,...]
