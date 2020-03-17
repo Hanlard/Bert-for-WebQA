@@ -156,7 +156,7 @@ def TrainOneEpoch(model, train_iter, dev_iter, test_iter, optimizer, hp):
         IsQAloss_all.append(IsQA_loss.to("cpu").item())
         loss = IsQA_loss + crf_loss
 
-        nn.utils.clip_grad_norm_(model.parameters(), 3.0)#设置梯度截断阈值
+        # nn.utils.clip_grad_norm_(model.parameters(), 3.0)#设置梯度截断阈值
         loss.backward()## 计算梯度
         optimizer.step()## 根据计算的梯度更新网络参数
 
@@ -174,7 +174,7 @@ def TrainOneEpoch(model, train_iter, dev_iter, test_iter, optimizer, hp):
             accIsQA, accCRF = Eval(model, dev_iter)
             if accIsQA * accCRF > best_acc:
                 best_acc = accIsQA * accCRF
-                if i>1000:
+                if i>0:
                     print("Devdata 精度提升 备份模型至{}".format(hp.model_back))
                     torch.save(model, hp.model_back)
             model.train()
@@ -260,22 +260,6 @@ def prepare_knowledge(knowledge_path,Stopword_path):
     vocabulary_ = vectorizer.vocabulary_
     return d_matrix, vocabulary_, del_stopword, Stopword, dataset
 
-# def QA(model, question, xu, knowledge, q_list):
-#     xu.reverse()# 按相关度从大到小
-#     result = {}
-#     for index in xu:#[[1],[2],[3],...]
-#         q=question
-#         e=knowledge.evidences[index[0]]
-#         answer=Demo(model,q,e)
-#         print("answer:",answer)
-#         print("evidence:",e)
-#         if answer in result:
-#             result[answer] = result[answer] + 1
-#         else:
-#             if answer:
-#                 result[answer] = 1
-#     return result
-
 def QA(model, question, xu, knowledge):
     # 按相关度从大到小 #[1,2,3,...]
     xu.reverse()
@@ -308,7 +292,7 @@ def QA(model, question, xu, knowledge):
     for k in range(len(xu)):
         answer = ""
         tokens = tokens_l[k]
-        if IsQA_prediction[k]==1:
+        if IsQA_prediction[k]==1:#[cls]判断
             for i in range(len(tokens)):
                 if CRFprediction[k,i].item()==1:
                     answer = answer + tokens[i]
@@ -491,7 +475,7 @@ if __name__ == "__main__":
         else:
             print("没有可用模型！")
     else:
-        print("--mode请选择：train/eval/demo, 请注意拼写")
+        print("--mode请选择：train/eval/demo/QA, 请注意拼写")
 
 
 
