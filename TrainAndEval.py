@@ -33,14 +33,9 @@ parser.add_argument("--knowledge_path", type=str, default="data/me_test.ann.json
 parser.add_argument("--Stopword_path",type=str, default= 'data/stop_words.txt')
 parser.add_argument("--device", type=str, default='cuda')
 parser.add_argument("--mode", type=str, default='train')  # eval / demo / train / QA
-if os.name == "nt":
-    parser.add_argument("--model_path", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\latest_model.pt")
-    parser.add_argument("--model_back", type=str, default="D:\创新院\智能问答\BERT for WebQA\save_model\\back_model.pt")
-    parser.add_argument("--batch_size", type=int, default=4)
-else:
-    parser.add_argument("--model_path", type=str, default="save_model/latest_model.pt")
-    parser.add_argument("--model_back", type=str, default="save_model/back_model.pt")
-    parser.add_argument("--batch_size", type=int, default=16)
+parser.add_argument("--model_path", type=str, default="save_model/latest_model.pt")
+parser.add_argument("--model_back", type=str, default="save_model/back_model.pt")
+parser.add_argument("--batch_size", type=int, default=16)
 
 hp = parser.parse_args()
 
